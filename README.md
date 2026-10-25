@@ -39,6 +39,14 @@ Diagram colours:
 
 ---
 
+## Demo
+
+A live run of the three end-to-end scenarios against the deployed AgentCore Runtime, recorded from the real command output (wait time shortened).
+
+![NovaMart demo: return, policy and calculation scenarios](docs/demo/novamart-demo.gif)
+
+---
+
 ## Architecture
 
 ```mermaid
