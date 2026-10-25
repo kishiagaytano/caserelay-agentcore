@@ -1,9 +1,10 @@
 <div align="center">
 
-# 🛒 NovaMart Multi-Agent Customer Support
+# NovaMart Multi-Agent Customer Support
 
-**Five AI agents that read a customer's message, look up their orders, check company policy,
-decide on refunds and write the reply. No human in the loop, every step traced.**
+A customer support system built with the Strands Agents SDK on Amazon Bedrock AgentCore.
+It routes each request to specialist agents, retrieves policy text from three Knowledge Bases
+in parallel, decides refund eligibility and drafts the reply, with guardrails and end-to-end tracing.
 
 ![Amazon Bedrock AgentCore](https://img.shields.io/badge/Amazon_Bedrock-AgentCore-FF9900?style=flat-square&logo=amazonaws&logoColor=white)
 ![Strands Agents](https://img.shields.io/badge/Strands-Agents_SDK-2563EB?style=flat-square)
@@ -18,7 +19,7 @@ decide on refunds and write the reply. No human in the loop, every step traced.*
 
 ---
 
-## 📌 At a glance
+## Overview
 
 | | |
 |---|---|
@@ -27,28 +28,29 @@ decide on refunds and write the reply. No human in the loop, every step traced.*
 | **Safety** | A versioned **Bedrock Guardrail** on every model call (harmful content, PII, competitor talk, price haggling, legal threats, profanity). |
 | **Memory and state** | **AgentCore Memory** (session summaries, 7-day retention) plus a shared **DynamoDB WorkflowState** record with optimistic locking. |
 | **Observability** | **CloudWatch Logs** at INFO and **AWS X-Ray** at 100% sampling. Every request is one trace from Orchestrator to Knowledge Base. |
-| **Result** | ✅ **120 / 120** on the automated test suite · ✅ all three end-to-end scenarios routed correctly |
+| **Result** | **120 / 120** on the automated test suite; all three end-to-end scenarios routed as specified. |
 
-**Colour key** used throughout this README:
-
-| 🟧 Orchestrator / AWS | 🟦 Worker agents | 🟩 Knowledge and RAG | ⬛ Data stores | 🟪 Safety and observability |
-|:---:|:---:|:---:|:---:|:---:|
-| `#FF9900` | `#2563EB` | `#16A34A` | `#475569` | `#7C3AED` |
+Diagram colours:
+![Orchestrator](https://img.shields.io/badge/Orchestrator-FF9900?style=flat-square)
+![Worker agents](https://img.shields.io/badge/Worker_agents-2563EB?style=flat-square)
+![Knowledge and RAG](https://img.shields.io/badge/Knowledge_%26_RAG-16A34A?style=flat-square)
+![Data stores](https://img.shields.io/badge/Data_stores-475569?style=flat-square)
+![Safety and observability](https://img.shields.io/badge/Safety_%26_observability-7C3AED?style=flat-square)
 
 ---
 
-## 🧭 Architecture
+## Architecture
 
 ```mermaid
 flowchart LR
-    C([👤 Customer]) --> O
+    C([Customer]) --> O
 
     subgraph RT["Amazon Bedrock AgentCore Runtime"]
-        O["🧭 OrchestratorAgent<br/>Claude Haiku 4.5 · temp 0.0"]
-        O --> INV["📦 InventoryAgent<br/>Sonnet 4.5 · 0.1"]
-        O --> REF["💸 RefundAgent<br/>Sonnet 4.5 · 0.1"]
-        O --> POL["📚 PolicyAgent<br/>Sonnet 4.5 · 0.2"]
-        O --> COM["✉️ CommunicationAgent<br/>Sonnet 4.5 · 0.3"]
+        O["OrchestratorAgent<br/>Claude Haiku 4.5 · temp 0.0"]
+        O --> INV["InventoryAgent<br/>Sonnet 4.5 · 0.1"]
+        O --> REF["RefundAgent<br/>Sonnet 4.5 · 0.1"]
+        O --> POL["PolicyAgent<br/>Sonnet 4.5 · 0.2"]
+        O --> COM["CommunicationAgent<br/>Sonnet 4.5 · 0.3"]
 
         POL -->|parallel| R1["Returns retriever"]
         POL -->|parallel| R2["Shipping retriever"]
@@ -64,8 +66,8 @@ flowchart LR
     O <-.->|optimistic locking| WS[("DynamoDB<br/>WorkflowState")]
     INV & REF & POL & COM -.-> WS
 
-    GR{{"🛡️ Bedrock Guardrail v1<br/>on every model call"}} -.- RT
-    RT -.-> OBS{{"📈 CloudWatch Logs + X-Ray"}}
+    GR{{"Bedrock Guardrail v1<br/>on every model call"}} -.- RT
+    RT -.-> OBS{{"CloudWatch Logs + X-Ray"}}
 
     classDef orch fill:#FF9900,stroke:#B36B00,color:#111827,font-weight:bold
     classDef worker fill:#2563EB,stroke:#1E40AF,color:#FFFFFF
@@ -85,14 +87,14 @@ flowchart LR
 
 ### The agents
 
-| | Agent | Model · temp | Job | Tools |
-|:-:|---|---|---|---|
-| 🟧 | **OrchestratorAgent** | Haiku 4.5 · `0.0` | Reads the intent, routes to specialists, manages WorkflowState. **Never writes the reply itself.** | `initialize_session` · `route_to_inventory_agent` · `route_to_policy_agent` · `route_to_refund_agent` · `route_to_communication_agent` |
-| 🟦 | **InventoryAgent** | Sonnet 4.5 · `0.1` | Looks up order and customer facts. Reports facts only, never decides. | `check_order_status` · `get_customer_tier` · `list_customer_orders` |
-| 🟦 | **RefundAgent** | Sonnet 4.5 · `0.1` | Decides return eligibility: **30 days Standard, 60 days Premium**. Starts the return if eligible and requested. | `get_inventory_context` · `initiate_refund` |
-| 🟦 | **PolicyAgent** | Sonnet 4.5 · `0.2` | Fans out to three retriever sub-agents in parallel and synthesises one grounded answer. | `search_all_policies` |
-| 🟩 | ↳ Returns / Shipping / Warranty **PolicyRetrieverAgent** | Sonnet 4.5 · `0.0` | Each one queries its own Bedrock Knowledge Base. | `retrieve_*_policy` |
-| 🟦 | **CommunicationAgent** | Sonnet 4.5 · `0.3` | Reads the full WorkflowState and writes the warm, final customer reply. | `get_full_workflow_context` |
+| Agent | Model · temp | Responsibility | Tools |
+|---|---|---|---|
+| **OrchestratorAgent** | Haiku 4.5 · `0.0` | Reads the intent, routes to specialists, manages WorkflowState. **Never writes the reply itself.** | `initialize_session` · `route_to_inventory_agent` · `route_to_policy_agent` · `route_to_refund_agent` · `route_to_communication_agent` |
+| **InventoryAgent** | Sonnet 4.5 · `0.1` | Looks up order and customer facts. Reports facts only, never decides. | `check_order_status` · `get_customer_tier` · `list_customer_orders` |
+| **RefundAgent** | Sonnet 4.5 · `0.1` | Decides return eligibility: **30 days Standard, 60 days Premium**. Starts the return if eligible and requested. | `get_inventory_context` · `initiate_refund` |
+| **PolicyAgent** | Sonnet 4.5 · `0.2` | Fans out to three retriever sub-agents in parallel and synthesises one grounded answer. | `search_all_policies` |
+| Returns / Shipping / Warranty **PolicyRetrieverAgent** (inside PolicyAgent) | Sonnet 4.5 · `0.0` | Each one queries its own Bedrock Knowledge Base. | `retrieve_*_policy` |
+| **CommunicationAgent** | Sonnet 4.5 · `0.3` | Reads the full WorkflowState and writes the warm, final customer reply. | `get_full_workflow_context` |
 
 Models always come from `config.ORCHESTRATOR_MODEL_ID` and `config.WORKER_MODEL_ID`. None are hard-coded.
 
@@ -109,17 +111,17 @@ Models always come from `config.ORCHESTRATOR_MODEL_ID` and `config.WORKER_MODEL_
 
 ---
 
-## 🔄 How a request flows
+## Request flow
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor C as Customer
-    participant O as 🧭 Orchestrator
-    participant I as 📦 Inventory
-    participant R as 💸 Refund
-    participant M as ✉️ Communication
-    participant W as 🗄️ WorkflowState
+    participant O as Orchestrator
+    participant I as Inventory
+    participant R as Refund
+    participant M as Communication
+    participant W as WorkflowState
 
     C->>O: "I want to return my order ORD-27176" (CUST-001)
     O->>W: initialize_session → version 0
@@ -142,13 +144,13 @@ Every write to WorkflowState is a **conditional update on `version`**, so two ag
 
 | Scenario | Expected route | Result |
 |---|---|---|
-| *"I want to return my order ORD-27176"* (CUST-001, Premium) | Orchestrator → Inventory → Refund → Communication | ✅ Return reference and **$149.99** refund. A repeat request is recognised as already started. |
-| *"What is the return policy for premium customers?"* | Orchestrator → Policy (3 parallel KBs) → Communication | ✅ 60-day window, compared with 30 for Standard, grounded in all three KBs |
-| *"How much are 5 items at $29.99 with 10% off?"* | Orchestrator → Communication only | ✅ $149.95 − $14.995 = $134.955 → **$134.96** |
+| *"I want to return my order ORD-27176"* (CUST-001, Premium) | Orchestrator → Inventory → Refund → Communication | Pass. Return reference and **$149.99** refund. A repeat request is recognised as already started. |
+| *"What is the return policy for premium customers?"* | Orchestrator → Policy (3 parallel KBs) → Communication | Pass. 60-day window, compared with 30 for Standard, grounded in all three KBs |
+| *"How much are 5 items at $29.99 with 10% off?"* | Orchestrator → Communication only | Pass. $149.95 − $14.995 = $134.955 → **$134.96** |
 
 ---
 
-## 🛡️ Guardrail
+## Guardrail
 
 One published, numbered guardrail version (never `DRAFT`) is attached to **every agent's model**, locally and in the deployed runtime.
 
@@ -169,13 +171,13 @@ python scripts/check_guardrail.py   # math allowed · haggling, competitor, lega
 
 ---
 
-## 📊 Results
+## Results
 
 <table>
 <tr>
 <td width="50%" valign="top">
 
-**🟩 Automated tests: 120 / 120**
+**Automated tests: 120 / 120**
 
 | Task | Area | Score |
 |---|---|:-:|
@@ -188,7 +190,7 @@ python scripts/check_guardrail.py   # math allowed · haggling, competitor, lega
 </td>
 <td width="50%" valign="top">
 
-**🟪 X-Ray trace map**
+**X-Ray trace map**
 
 One trace per request: *Client → NovaMart-Orchestrator →* the four worker agents, and *PolicyAgent →* the three `KnowledgeBase:*` nodes.
 
@@ -197,36 +199,36 @@ One trace per request: *Client → NovaMart-Orchestrator →* the four worker ag
 </table>
 
 <details open>
-<summary><b>📸 Test suite: 120/120</b></summary>
+<summary><b>Screenshot: test suite at 120/120</b></summary>
 
 ![Full test suite at 120/120](screenshots/test-results-120.png)
 </details>
 
 <details open>
-<summary><b>📸 X-Ray service map</b></summary>
+<summary><b>Screenshot: X-Ray service map</b></summary>
 
 ![X-Ray trace map showing NovaMart-Orchestrator connected to the worker agents and Knowledge Bases](screenshots/xray-service-map.jpg)
 </details>
 
 ---
 
-## ☁️ AWS resources
+## AWS resources
 
-| | Resource | Created by | Purpose |
-|:-:|---|---|---|
-| ⬛ | DynamoDB `orders`, `customers`, `workflow-state` | CloudFormation stack | Order data and the shared WorkflowState |
-| ⬛ | S3 policy-docs bucket (`policies/{returns,shipping,warranty}/`) | CloudFormation + `seed_data.py` | Source documents for RAG |
-| 🟩 | S3 Vectors bucket + 3 indexes (1024-dim, cosine) | CloudFormation stack | Vector store behind the KBs |
-| 🟩 | 3 Bedrock Knowledge Bases (Titan Text Embeddings V2, self-managed) | AWS Console | `novamart-{returns,shipping,warranty}-policy-kb` |
-| 🟧 | AgentCore Runtime (PUBLIC · HTTP, Python 3.12 / arm64) | `deploy`, through the AgentCore CLI and CDK | Hosts the agent graph |
-| 🟧 | AgentCore Memory (`summaryMemoryStrategy`, 7 days) | `deploy` | Session summaries |
-| 🟪 | Bedrock Guardrail, numbered version | `deploy` | Safety on every model call |
-| 🟪 | CloudWatch log group + Transaction Search (100%) | stack + `deploy` | Logs and X-Ray traces |
-| ⬛ | IAM execution role | CloudFormation stack | Runtime permissions |
+| Resource | Created by | Purpose |
+|---|---|---|
+| DynamoDB `orders`, `customers`, `workflow-state` | CloudFormation stack | Order data and the shared WorkflowState |
+| S3 policy-docs bucket (`policies/{returns,shipping,warranty}/`) | CloudFormation + `seed_data.py` | Source documents for RAG |
+| S3 Vectors bucket + 3 indexes (1024-dim, cosine) | CloudFormation stack | Vector store behind the KBs |
+| 3 Bedrock Knowledge Bases (Titan Text Embeddings V2, self-managed) | AWS Console | `novamart-{returns,shipping,warranty}-policy-kb` |
+| AgentCore Runtime (PUBLIC · HTTP, Python 3.12 / arm64) | `deploy`, through the AgentCore CLI and CDK | Hosts the agent graph |
+| AgentCore Memory (`summaryMemoryStrategy`, 7 days) | `deploy` | Session summaries |
+| Bedrock Guardrail, numbered version | `deploy` | Safety on every model call |
+| CloudWatch log group + Transaction Search (100%) | stack + `deploy` | Logs and X-Ray traces |
+| IAM execution role | CloudFormation stack | Runtime permissions |
 
 ---
 
-## 🚀 Run it yourself
+## Running the project
 
 > **Prerequisites:** Python 3.12+, AWS CLI v2 with credentials for **`us-east-1`**, Node.js 20+, [`uv`](https://docs.astral.sh/uv/), and the AgentCore CLI **0.30.0** (`npm install -g @aws/agentcore@0.30.0`). Bedrock access to Claude Haiku 4.5, Claude Sonnet 4.5 and Titan Text Embeddings V2.
 
@@ -313,26 +315,26 @@ agentcore logs                                             # runtime logs
 
 ---
 
-## 🧠 Design decisions worth knowing
+## Design notes
 
-| | Decision | Why |
-|:-:|---|---|
-| ⬛ | **Optimistic locking on WorkflowState.** Every routing tool reads `version`, runs its worker, then writes with `expected_version`. | Concurrent agents can never silently overwrite each other's findings. |
-| 🟧 | **Routing tools run sequentially** (`SequentialToolExecutor`) | Rule 1 must finish before any worker starts and Rule 6 must run last. Concurrent tool calls had raced to create the session record. |
-| 🟩 | **Parallel RAG** with `ThreadPoolExecutor(max_workers=3)` + `as_completed()`. A failed retriever is reported as a failure and doesn't sink the other two. | All three Knowledge Bases are queried at once instead of one after another (about 9 s for the whole fan-out in testing). |
-| 🟦 | **Refund window re-checked in code** inside `initiate_refund`, with a conditional DynamoDB write | The LLM decides, but an ineligible or already-returned order can never be marked for return. |
-| 🟦 | **Workers start each call from a clean context.** WorkflowState is the shared memory. | Stops stale chat history from one customer leaking into another request. |
-| 🟪 | **Contact details stripped** from customer lookups | Keeps PII out of model context. The guardrail anonymises anything that slips through. |
-| 🟦 | **Explicit rounding rule** in the Communication prompt | Round only the final total. This fixed a live $134.95 vs $134.96 bug. |
+| Decision | Reason |
+|---|---|
+| **Optimistic locking on WorkflowState.** Every routing tool reads `version`, runs its worker, then writes with `expected_version`. | Concurrent agents can never silently overwrite each other's findings. |
+| **Routing tools run sequentially** (`SequentialToolExecutor`) | Rule 1 must finish before any worker starts and Rule 6 must run last. Concurrent tool calls had raced to create the session record. |
+| **Parallel RAG** with `ThreadPoolExecutor(max_workers=3)` + `as_completed()`. A failed retriever is reported as a failure and doesn't sink the other two. | All three Knowledge Bases are queried at once instead of one after another (about 9 s for the whole fan-out in testing). |
+| **Refund window re-checked in code** inside `initiate_refund`, with a conditional DynamoDB write | The LLM decides, but an ineligible or already-returned order can never be marked for return. |
+| **Workers start each call from a clean context.** WorkflowState is the shared memory. | Stops stale chat history from one customer leaking into another request. |
+| **Contact details stripped** from customer lookups | Keeps PII out of model context. The guardrail anonymises anything that slips through. |
+| **Explicit rounding rule** in the Communication prompt | Round only the final total. This fixed a live $134.95 vs $134.96 bug. |
 
 ---
 
-## 🗂️ Project structure
+## Project structure
 
 ```text
 novamart-agentcore/
 ├── src/
-│   ├── agent_orchestrator.py   ⭐ the 5 agents, routing, guardrail, deploy, memory, observability
+│   ├── agent_orchestrator.py      main implementation: agents, routing, guardrail, deploy, memory, observability
 │   ├── agent_observability.py     X-Ray subsegment per tool call + CloudWatch logging (provided)
 │   ├── agent_utils.py             colour-coded terminal trace UI (provided)
 │   ├── agentcore_cli.py           wrapper around `agentcore deploy` (provided)
@@ -352,7 +354,7 @@ Only `src/agent_orchestrator.py` was required to change. `scripts/check_guardrai
 
 ---
 
-## 🩺 Troubleshooting
+## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
@@ -369,7 +371,7 @@ More detail is in the [original starter guide](docs/UDACITY_STARTER_GUIDE.md#tro
 
 ---
 
-## 🧹 Clean up and cost
+## Cleanup and cost
 
 Costs are small and mostly per run: Claude tokens on Bedrock, one-off Titan embeddings during KB syncs, and S3 Vectors storage. AgentCore Runtime is billed by active usage, so an idle deployment costs very little.
 
