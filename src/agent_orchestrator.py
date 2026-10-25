@@ -58,6 +58,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Strands Agents SDK - see: https://github.com/strands-agents/sdk-python
 from strands import Agent
 from strands.models import BedrockModel
+
+try:  # strands-agents >= 1.8: run one tool call at a time
+    from strands.tools.executors import SequentialToolExecutor
+except ImportError:  # older SDKs already execute tools sequentially
+    SequentialToolExecutor = None
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
@@ -965,7 +970,11 @@ CRITICAL:
         """Read the current WorkflowState version, creating the record if it is missing."""
         state = _read_workflow_state(session_id)
         if state is None:
-            state = _create_workflow_state(session_id, customer_id)
+            try:
+                state = _create_workflow_state(session_id, customer_id)
+            except dynamodb.meta.client.exceptions.ConditionalCheckFailedException:
+                # initialize_session created the record at the same moment
+                state = _read_workflow_state(session_id)
         return int(state['version'])
 
     def _invoke_worker(worker: Agent, prompt: str) -> str:
@@ -1114,10 +1123,15 @@ CRITICAL:
                     f"{state.get('customer_id', customer_id)} (WorkflowState version "
                     f"{int(state.get('version', 0))}); continuing it.")
 
+    # Routing tools share one WorkflowState record, so they must run one at a
+    # time and in the order the orchestrator chose (Rule 1 first, Rule 6 last).
+    executor_kwargs = {'tool_executor': SequentialToolExecutor()} if SequentialToolExecutor else {}
+
     return Agent(
         name='OrchestratorAgent',
         model=model,
         system_prompt=system_prompt,
+        **executor_kwargs,
         tools=[
             initialize_session,
             route_to_inventory_agent,
