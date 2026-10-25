@@ -750,7 +750,7 @@ You retrieve passages from the {domain} Policy knowledge base - nothing else.
                 return domain, str(agent(query)).strip()
             except Exception as exc:         # one failed KB must not sink the others
                 logger.exception("%s retriever failed", domain)
-                return domain, f"[{domain} retriever error: {exc}]"
+                return domain, f"[{domain} policy retrieval failed: {exc}]"
 
         results = {}
         try:
