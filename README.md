@@ -210,6 +210,73 @@ One trace per request: *Client → NovaMart-Orchestrator →* the four worker ag
 ![X-Ray trace map showing NovaMart-Orchestrator connected to the worker agents and Knowledge Bases](screenshots/xray-service-map.jpg)
 </details>
 
+### Live run: `python src/agent_orchestrator.py test`
+
+Twelve consecutive terminal captures of one run of the three scenarios, from query to final reply, each ending with its X-Ray trace being published. Full set: [`screenshots/test-run/`](screenshots/test-run/).
+
+| Scenario | Route | Outcome |
+|---|---|---|
+| Return ORD-27176 (CUST-001, Premium) | Inventory → Refund → Communication | Eligible (12 of 60 days), return `RET-27176-B042CD`, refund $149.99 |
+| Premium return policy (CUST-002) | Policy (3 KBs in parallel) → Communication | "All 3 KBs responded"; 60-day window vs 30 for Standard |
+| 5 × $29.99 with 10% off (CUST-003) | Communication only | $149.95 − $14.995 = $134.955 → **$134.96** |
+
+<details open>
+<summary><b>Screenshots: return scenario (refund decision and reply)</b></summary>
+
+<img src="screenshots/test-run/02-scenario1-return-refund-decision.png" alt="RefundAgent decides ELIGIBLE for ORD-27176" width="49%"> <img src="screenshots/test-run/03-scenario1-return-initiated.png" alt="Return initiated with reference and refund amount" width="49%">
+</details>
+
+<details open>
+<summary><b>Screenshots: policy scenario (parallel retrieval and per-KB results)</b></summary>
+
+<img src="screenshots/test-run/05-scenario2-policy-parallel-retrieval.png" alt="PolicyAgent spawns three retriever sub-agents in parallel" width="49%"> <img src="screenshots/test-run/06-scenario2-policy-retriever-results.png" alt="All 3 KBs responded with passages from each Knowledge Base" width="49%">
+</details>
+
+<details open>
+<summary><b>Screenshots: calculation scenario</b></summary>
+
+<img src="screenshots/test-run/10-scenario3-math-routing.png" alt="Orchestrator routes the calculation straight to the CommunicationAgent" width="49%"> <img src="screenshots/test-run/12-scenario3-math-finished.png" alt="Final answer $134.96 and published X-Ray trace" width="49%">
+</details>
+
+<details>
+<summary><b>All 12 test-run screenshots in order</b></summary>
+
+| # | Screenshot |
+|:-:|---|
+| 1 | [Return: inventory lookup](screenshots/test-run/01-scenario1-return-inventory.png) |
+| 2 | [Return: refund decision](screenshots/test-run/02-scenario1-return-refund-decision.png) |
+| 3 | [Return: return initiated, communication agent](screenshots/test-run/03-scenario1-return-initiated.png) |
+| 4 | [Return: final reply](screenshots/test-run/04-scenario1-return-reply.png) |
+| 5 | [Policy: parallel retrieval starts](screenshots/test-run/05-scenario2-policy-parallel-retrieval.png) |
+| 6 | [Policy: all 3 KBs responded, retriever results](screenshots/test-run/06-scenario2-policy-retriever-results.png) |
+| 7 | [Policy: synthesis](screenshots/test-run/07-scenario2-policy-synthesis.png) |
+| 8 | [Policy: communication agent](screenshots/test-run/08-scenario2-policy-communication.png) |
+| 9 | [Policy: final reply](screenshots/test-run/09-scenario2-policy-reply.png) |
+| 10 | [Calculation: routing](screenshots/test-run/10-scenario3-math-routing.png) |
+| 11 | [Calculation: answer](screenshots/test-run/11-scenario3-math-answer.png) |
+| 12 | [Calculation: final reply and trace](screenshots/test-run/12-scenario3-math-finished.png) |
+</details>
+
+### Knowledge Bases in the AWS console
+
+Each Knowledge Base uses **Titan Text Embeddings V2** (1024 dimensions) and **Amazon S3 Vectors**, pointing at the stack's vector bucket `udacity-agentcore-vectors-045618689244-bb5276e0` with its matching index. Each data source reads its own `policies/<domain>/` prefix and has a **Complete** sync with both documents **INDEXED**.
+
+| | Returns | Shipping | Warranty |
+|---|---|---|---|
+| **Overview** (status, ID) | <img src="screenshots/aws-console/kb-returns-1-overview.png" alt="Returns KB overview" width="260"> | <img src="screenshots/aws-console/kb-shipping-1-overview.png" alt="Shipping KB overview" width="260"> | <img src="screenshots/aws-console/kb-warranty-1-overview.png" alt="Warranty KB overview" width="260"> |
+| **Embeddings and vector store** | <img src="screenshots/aws-console/kb-returns-2-storage.png" alt="Returns KB: Titan v2, S3 Vectors, returns-policy-index" width="260"> | <img src="screenshots/aws-console/kb-shipping-2-storage.png" alt="Shipping KB: Titan v2, S3 Vectors, shipping-policy-index" width="260"> | <img src="screenshots/aws-console/kb-warranty-2-storage.png" alt="Warranty KB: Titan v2, S3 Vectors, warranty-policy-index" width="260"> |
+| **Data source sync** | <img src="screenshots/aws-console/kb-returns-3-sync.png" alt="Returns data source: policies/returns/, sync Complete" width="260"> | <img src="screenshots/aws-console/kb-shipping-3-sync.png" alt="Shipping data source: policies/shipping/, sync Complete" width="260"> | <img src="screenshots/aws-console/kb-warranty-3-sync.png" alt="Warranty data source: policies/warranty/, sync Complete" width="260"> |
+
+### AgentCore deployment in the AWS console
+
+| Runtime (Ready, version 3) | Version 3: Python 3.12, HTTP | PUBLIC network, environment variables | Memory (Active, 7-day expiry, session summary) |
+|---|---|---|---|
+| <img src="screenshots/aws-console/agentcore-runtime-1-overview.png" alt="AgentCore Runtime udacity_agentcore_runtime, status Ready" width="200"> | <img src="screenshots/aws-console/agentcore-runtime-2-version-http.png" alt="Runtime version 3 with HTTP protocol and execution role" width="200"> | <img src="screenshots/aws-console/agentcore-runtime-3-public-env-vars.png" alt="Security Public and environment variables including KB IDs and guardrail" width="200"> | <img src="screenshots/aws-console/agentcore-memory.png" alt="AgentCore Memory active with 7-day event expiration and SessionSummary strategy" width="200"> |
+
+| Guardrail (Ready, version 1) | Content filters | Denied topics and profanity | PII |
+|---|---|---|---|
+| <img src="screenshots/aws-console/guardrail-1-overview-version.png" alt="Guardrail overview with published version 1" width="200"> | <img src="screenshots/aws-console/guardrail-2-content-filters.png" alt="Content filters: hate, sexual, violence high; insults, misconduct medium" width="200"> | <img src="screenshots/aws-console/guardrail-3-denied-topics-profanity.png" alt="Denied topics: pricing negotiations, legal threats, competitor products; profanity filter" width="200"> | <img src="screenshots/aws-console/guardrail-4-pii.png" alt="PII: card numbers and SSNs blocked; email and phone masked" width="200"> |
+
 ---
 
 ## AWS resources
@@ -344,7 +411,7 @@ novamart-agentcore/
 ├── tests/test_agent.py            automated grader, 120 points (provided)
 ├── infrastructure/                CloudFormation stack, seed data, cleanup (provided)
 ├── agentcore/                     AgentCore CLI project + CDK app
-├── screenshots/                   120/120 test run · X-Ray service map
+├── screenshots/                   120/120 tests · X-Ray map · test run · AWS console
 ├── diagrams/                      original course diagrams
 ├── docs/UDACITY_STARTER_GUIDE.md  the original task instructions
 └── config.py · requirements.txt · .env.example
