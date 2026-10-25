@@ -1242,7 +1242,7 @@ def create_guardrail() -> tuple[str, str]:
             print(f"Guardrail already exists: {guardrail_id} (version: {guardrail_version})")
             return guardrail_id, guardrail_version
 
-    # TODO: Create the guardrail
+    # Create the guardrail
     # Use bedrock_client.create_guardrail() with:
     #   - name (config.GUARDRAIL_NAME) and description
     #   - contentPolicyConfig - filtersConfig for SEXUAL, VIOLENCE, HATE at HIGH
@@ -1415,7 +1415,7 @@ def deploy_to_agentcore_runtime(
     # Stage the code the CLI packages (src modules + config.py + pyproject.toml).
     agentcore_cli.stage_runtime_code()
 
-    # TODO: Configure and deploy the runtime with the AgentCore CLI
+    # Configure and deploy the runtime with the AgentCore CLI
     # 1. Build the runtime environment variables dict `runtime_env` with:
     #      AWS_REGION, PROJECT_NAME (config.AWS_REGION / config.PROJECT_NAME),
     #      RETURNS_KB_ID, SHIPPING_KB_ID, WARRANTY_KB_ID (from config),
@@ -1455,7 +1455,8 @@ def deploy_to_agentcore_runtime(
     runtime_arn = agentcore_cli.deployed_runtime_arn()
 
     if not runtime_arn:
-        raise NotImplementedError("deploy_to_agentcore_runtime: AgentCore CLI deployment not implemented")
+        raise RuntimeError("deploy_to_agentcore_runtime: the AgentCore CLI did not report a runtime ARN - "
+                           "check agentcore/.cli/logs/ for the deploy error")
 
     # Wait for the runtime to become READY and return its ARN.
     print(f"  Runtime deployed: {runtime_arn}")
@@ -1486,7 +1487,7 @@ def configure_memory(runtime_arn: str) -> str:
             print(f"AgentCore Memory already exists: {memory_arn}")
             return memory_arn
 
-    # TODO: Create AgentCore Memory
+    # Create AgentCore Memory
     # Use agentcore_control.create_memory() with:
     #   - name (memory_name) and a description
     #   - eventExpiryDuration = 7   (days)
@@ -1511,7 +1512,7 @@ def configure_memory(runtime_arn: str) -> str:
     )
 
     if response is None:
-        raise NotImplementedError("configure_memory: create_memory() not implemented")
+        raise RuntimeError("configure_memory: create_memory() returned no response")
 
     # Wait until the memory resource is ACTIVE and return its ARN.
     memory = response['memory']
@@ -1546,7 +1547,7 @@ def configure_observability(runtime_arn: str) -> None:
                           sampling percentage; runtime env AGENT_TRACING_ENABLED /
                           AGENT_TRACE_SAMPLING_RATE
     """
-    # TODO: Build the logging configuration
+    # Build the logging configuration
     # logging_configuration = {
     #     'cloudWatchConfig': {'logGroupName': config.AGENT_LOG_GROUP,
     #                          'logLevel': 'INFO', 'enabled': True},
