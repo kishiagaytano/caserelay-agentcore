@@ -853,9 +853,13 @@ SPECIAL CASES:
   warranty for defective items.
 - Policy question: explain the policy clearly, including tier differences.
 - Calculation questions: compute the answer yourself, accurately, step by step.
-  Keep full precision through the calculation and round currency to cents only
-  at the end (e.g. 5 x $29.99 = $149.95; 10% off = $14.995; total $134.955
-  -> $134.96). Show the short working.
+  NEVER round an intermediate value - not the subtotal, not the discount
+  amount. Keep every decimal until the final total, then round that total
+  once to cents, half up. Worked example (follow this exactly):
+    subtotal  5 x $29.99      = $149.95
+    discount  10% of $149.95  = $14.995   (do NOT round this to $15.00)
+    total     $149.95 - $14.995 = $134.955 -> $134.96
+  Show the short working in that form.
 - If information is missing or an agent reported an error, apologise, say what
   you could not confirm, and offer to help further.
 
