@@ -1,6 +1,6 @@
 <div align="center">
 
-# NovaMart Multi-Agent Customer Support
+# CaseRelay Multi-Agent Customer Support
 
 A customer support system built with the Strands Agents SDK on Amazon Bedrock AgentCore.
 It routes each request to specialist agents, retrieves policy text from three Knowledge Bases
@@ -407,7 +407,7 @@ agentcore logs                                             # runtime logs
 ## Project structure
 
 ```text
-novamart-agentcore/
+caserelay-agentcore/
 ├── src/
 │   ├── agent_orchestrator.py      main implementation: agents, routing, guardrail, deploy, memory, observability
 │   ├── agent_observability.py     X-Ray subsegment per tool call + CloudWatch logging (provided)
