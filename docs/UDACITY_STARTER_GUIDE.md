@@ -1,10 +1,14 @@
-# Enterprise Multi-Agent Architecture with Amazon Bedrock AgentCore
+# Udacity Starter Guide (original project instructions)
+
+> The original README supplied with the Udacity starter, kept for reference. The project overview is in the [main README](../README.md).
+
+## Enterprise Multi-Agent Architecture with Amazon Bedrock AgentCore
 
 **Udacity - School of AI | Course 3.3 | Capstone Project 3.3 NovaMart**
 
 A production-grade multi-agent customer support system built with the [Strands Agents SDK](https://github.com/strands-agents/sdk-python) and Amazon Bedrock AgentCore. The system automatically routes customer support requests to specialist agents, retrieves grounded knowledge via **parallel multi-agent RAG**, enforces enterprise safety guardrails, and maintains shared workflow state across agents - all observable through CloudWatch and X-Ray.
 
-<img width="1140" height="824" alt="NovaMart architecture overview" src="diagrams/architecture-overview.png" />
+<img width="1140" height="824" alt="NovaMart architecture overview" src="../diagrams/architecture-overview.png" />
 
 
 
@@ -40,7 +44,7 @@ Shared State: DynamoDB WorkflowStateTable (with optimistic locking)
 | **RefundAgent** | Claude Sonnet 4.5 | Makes return/refund eligibility decisions (30-day Standard, 60-day Premium) | `get_inventory_context`, `initiate_refund` |
 | **CommunicationAgent** | Claude Sonnet 4.5 | Drafts final, empathetic customer-facing response | `get_full_workflow_context` |
 
-<img width="1165" height="842" alt="Agents and tools reference" src="diagrams/agents-and-tools-reference.png" />
+<img width="1165" height="842" alt="Agents and tools reference" src="../diagrams/agents-and-tools-reference.png" />
 
 
 
@@ -57,7 +61,7 @@ Shared State: DynamoDB WorkflowStateTable (with optimistic locking)
 - **Bedrock Knowledge Bases**: Uses an S3 Vectors backing store (vector bucket + one index per KB, created by the stack) for policy retrieval (no custom embeddings)
 
 ---
-<img width="1164" height="803" alt="Request flow scenarios" src="diagrams/request-flow-scenarios.png" />
+<img width="1164" height="803" alt="Request flow scenarios" src="../diagrams/request-flow-scenarios.png" />
 
 
 
@@ -599,4 +603,4 @@ The first deploy bootstraps CDK (`CDKToolkit` stack) - make sure your credential
 
 ## License
 
-[License](../../LICENSE.md)
+[License](../LICENSE.md)
